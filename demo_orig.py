@@ -47,13 +47,20 @@ def train_lora(
         gradient_accumulation_steps=training_args.gradient_accumulation_steps,
         warmup_steps=100,
         learning_rate=2e-4,
-        bf16=True,
-        logging_steps=20,
+        bf16=False,
+        fp16=True,
+        logging_steps=10,
         output_dir="outputs",
         optim="paged_adamw_8bit",
         remove_unused_columns=False,
         num_train_epochs=training_args.num_train_epochs,
         max_seq_length=context_length,
+        evaluation_strategy="steps",
+        eval_steps=50,
+        save_strategy="steps",
+        save_steps=50,
+        logging_dir="logs",
+        #report_to=["tensorboard"],
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_id,
@@ -62,13 +69,19 @@ def train_lora(
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         quantization_config=bnb_config,
-        device_map={"": 0},
+        device_map="auto",
         token=os.environ["HF_TOKEN"],
     )
 
     # Load dataset
-    dataset = SFTDataset(
-        file="data/demo_data.jsonl",
+    train_dataset = SFTDataset(
+        file="data/training_set.jsonl",
+        tokenizer=tokenizer,
+        max_seq_length=context_length,
+        template=model2template[model_id],
+    )
+    eval_dataset = SFTDataset(
+        file="data/eval.jsonl",
         tokenizer=tokenizer,
         max_seq_length=context_length,
         template=model2template[model_id],
@@ -77,7 +90,8 @@ def train_lora(
     # Define trainer
     trainer = SFTTrainer(
         model=model,
-        train_dataset=dataset,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         args=training_args,
         peft_config=lora_config,
         data_collator=SFTDataCollator(tokenizer, max_seq_length=context_length),
@@ -85,6 +99,7 @@ def train_lora(
 
     # Train model
     trainer.train()
+    
 
     # save model
     trainer.save_model("outputs")
@@ -108,7 +123,7 @@ if __name__ == "__main__":
     )
 
     # Set model ID and context length
-    model_id = "Qwen/Qwen1.5-0.5B"
+    model_id = "Qwen/Qwen1.5-7B"
     context_length = 2048
 
     # Start LoRA fine-tuning

@@ -6,8 +6,8 @@ import yaml
 from loguru import logger
 from huggingface_hub import HfApi
 
-from demo import LoraTrainingArguments, train_lora
-from utils.constants import model2base_model, model2size
+from train_unsloth import train_unsloth
+from utils.constants_unsloth import model2base_model, model2size
 from utils.flock_api import get_task, submit_task
 from utils.gpu_utils import get_gpu_type
 
@@ -42,17 +42,17 @@ if __name__ == "__main__":
     # train all feasible models and merge
     for model_id in all_training_args.keys():
         logger.info(f"Start to train the model {model_id}...")
-        # if OOM, proceed to the next model
-        try:
-            train_lora(
-                model_id=model_id,
-                context_length=context_length,
-                training_args=LoraTrainingArguments(**all_training_args[model_id]),
-            )
-        except RuntimeError as e:
-            logger.error(f"Error: {e}")
-            logger.info("Proceed to the next model...")
-            continue
+    # if OOM, proceed to the next model
+    
+        max_seq_length = context_length = 4096 # Choose any! We auto support RoPE Scaling internally!
+        dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+        load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+        #model_id = "unsloth/Qwen2.5-7B-instruct"
+        model_id = "mistralai/Mistral-7B-v0.1"
+        #model_id = "unsloth/Meta-Llama-3.1-8B-bnb-4bit"
+        args = all_training_args[model_id]
+        train_unsloth(model_id, max_seq_length, context_length, load_in_4bit, full_train = True, **args)
+
 
         # generate a random repo id based on timestamp
         gpu_type = get_gpu_type()
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         try:
             logger.info("Start to push the lora weight to the hub...")
             api = HfApi(token=os.environ["HF_TOKEN"])
-            repo_name = f"{HF_USERNAME}/task-{task_id}-{model_id.replace('/', '-')}"
+            repo_name = f"{HF_USERNAME}/task-{task_id}-{model_id.replace('/', '-').replace('2.5', '1.5')}"
             # check whether the repo exists
             try:
                 api.create_repo(
@@ -68,7 +68,8 @@ if __name__ == "__main__":
                     exist_ok=False,
                     repo_type="model",
                 )
-            except Exception:
+            except Exception as e:
+                print(e)
                 logger.info(
                     f"Repo {repo_name} already exists. Will commit the new version."
                 )

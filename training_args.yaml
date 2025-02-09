@@ -37,3 +37,30 @@ google/gemma-7b:
   lora_rank: 4
   lora_alpha: 8
   lora_dropout: 0.1
+
+unsloth/Qwen2.5-7B-instruct:
+  warmup_steps: 5
+  max_steps: 10
+  seqlen: 4096
+  lora_r: 4
+  lora_alpha: 4
+  weight_decay: 0.01
+  lora_dropout: 0.0
+
+unsloth/Qwen1.5-7B-instruct:
+  warmup_steps: 5
+  max_steps: 10
+  seqlen: 4096
+  lora_r: 4
+  lora_alpha: 4
+  weight_decay: 0.01
+  lora_dropout: 0.0
+
+mistralai/Mistral-7B-v0.1:
+  warmup_steps: 5
+  max_steps: 120
+  seqlen: 4096
+  lora_r: 4
+  lora_alpha: 4
+  weight_decay: 0.01
+  lora_dropout: 0.0
